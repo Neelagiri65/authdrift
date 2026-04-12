@@ -10,3 +10,4 @@ venv/
 .semgrep_logs/
 .DS_Store
 *.swp
+fp-validation/
