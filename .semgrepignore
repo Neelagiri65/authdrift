@@ -1,0 +1,15 @@
+# authdrift project .semgrepignore.
+#
+# Semgrep's default .semgrepignore excludes tests/ — which would prevent us
+# from scanning our own fixture files. This file overrides that default.
+# Keep the standard noise excluded; do NOT exclude tests/.
+
+.venv/
+venv/
+.env/
+__pycache__/
+*.egg-info/
+build/
+dist/
+node_modules/
+.git/
