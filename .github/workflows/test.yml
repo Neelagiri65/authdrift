@@ -19,7 +19,7 @@ jobs:
       - name: Install semgrep
         run: pip install semgrep
 
-      - name: Scan vulnerable fixtures (must find exactly 3 issues)
+      - name: Scan all fixtures (must find exactly 8 issues)
         run: |
           set +e
           semgrep scan --config src/authdrift/rules/ tests/fixtures/ --error --json > /tmp/results.json
@@ -30,11 +30,20 @@ jobs:
             exit 1
           fi
           COUNT=$(python3 -c "import json; print(len(json.load(open('/tmp/results.json')).get('results',[])))")
-          if [ "$COUNT" -ne 3 ]; then
-            echo "Expected 3 findings, got $COUNT"
+          if [ "$COUNT" -ne 8 ]; then
+            echo "Expected 8 findings, got $COUNT"
             exit 1
           fi
-          echo "OK: 3 findings detected"
+          echo "OK: 8 findings detected across vulnerable fixtures, 0 false positives on safe fixtures"
 
-      - name: Scan safe fixture (must be clean)
-        run: semgrep scan --config src/authdrift/rules/ tests/fixtures/passport-safe.js --error
+      - name: Verify each safe fixture individually
+        run: |
+          for f in tests/fixtures/safe-*.js tests/fixtures/safe-*.ts tests/fixtures/safe-*.py tests/fixtures/passport-safe.js; do
+            [ -f "$f" ] || continue
+            semgrep scan --config src/authdrift/rules/ "$f" --error --quiet 2>/dev/null
+            if [ $? -ne 0 ]; then
+              echo "FALSE POSITIVE: $f"
+              exit 1
+            fi
+          done
+          echo "OK: all safe fixtures clean"

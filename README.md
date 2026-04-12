@@ -37,6 +37,33 @@ JSON output for CI:
 authdrift scan ./ --json
 ```
 
+## Exit codes
+
+- `0` — no findings (your codebase is clean)
+- `1` — findings detected (email-keyed OAuth handlers found)
+- `2` — error (semgrep not found, invalid path, etc.)
+
+## CI Integration
+
+Add this to `.github/workflows/authdrift.yml`:
+
+```yaml
+name: authdrift
+on: [push, pull_request]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install authdrift
+      - run: authdrift scan ./
+```
+
+The scan exits `1` on findings, failing the CI check.
+
 ## Why this matters
 
 Atlassian's own KB confirms that SCIM email changes create duplicate Atlassian Cloud accounts. Google's developer documentation acknowledges that revoke + reauth produces duplicate accounts. The cascade is documented; the fix is not deployed.
@@ -54,6 +81,26 @@ Atlassian's own KB confirms that SCIM email changes create duplicate Atlassian C
 - Flag every reference to `email` in an OAuth file. The rules require the email value to be used as a lookup key, not just read or logged.
 - Flag handlers that key on `sub` / `profile.id` and use email only as a contact attribute.
 - Auto-fix anything. Read-only by design.
+
+## Limitations
+
+authdrift catches the most common **direct** patterns — where email is used inline as a database lookup key in the same file as the OAuth handler. It does **not** catch:
+
+- **Indirect patterns** — email extracted into a variable or passed to a helper function in a different file (e.g. LibreChat's email-fallback pattern across `socialLogin.js`). These require manual review.
+- **Runtime-only email keying** — applications that resolve email to a user at the database level (stored procedures, views) rather than in application code.
+- **Non-Google OAuth providers** — the rules are scoped to Google OAuth patterns. Other providers (GitHub, Facebook, Apple) have similar risks but different code patterns.
+- **Database-level identity** — if your user table has a unique constraint on `email` rather than on `sub`, that's a schema-level vulnerability this tool can't see.
+
+## False positive?
+
+If authdrift flags code you've verified is safe, suppress with a Semgrep inline comment:
+
+```javascript
+// nosemgrep: oauth-passport-email-as-primary-key
+const user = await db.findUser({ email: profile.emails[0].value });
+```
+
+This keeps the finding suppressed for that line while continuing to scan the rest of the file.
 
 ## Roadmap
 
