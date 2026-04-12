@@ -22,7 +22,7 @@ jobs:
       - name: Scan vulnerable fixtures (must find exactly 3 issues)
         run: |
           set +e
-          semgrep scan --config src/authdrift/rules/ tests/fixtures/ --error --json > /tmp/results.json 2>&1
+          semgrep scan --config src/authdrift/rules/ tests/fixtures/ --error --json > /tmp/results.json
           EXIT=$?
           set -e
           if [ "$EXIT" -ne 1 ]; then
