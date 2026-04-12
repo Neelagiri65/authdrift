@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "authdrift"
+version = "0.1.0"
+description = "Find OAuth handlers that will break when users rename their identifier."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Neelagiri" }]
+keywords = [
+  "oauth",
+  "oidc",
+  "security",
+  "sast",
+  "semgrep",
+  "identity",
+  "gmail",
+  "phantom-user",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+  "semgrep>=1.50.0",
+]
+
+[project.scripts]
+authdrift = "authdrift.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Neelagiri65/authdrift"
+Issues = "https://github.com/Neelagiri65/authdrift/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/authdrift"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/authdrift",
+  "README.md",
+  "LICENSE",
+  "tests",
+]

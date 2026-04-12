@@ -1,0 +1,73 @@
+rules:
+  - id: oauth-passport-email-as-primary-key
+    message: |
+      This OAuth handler is using `profile.emails[0].value` as a user lookup key.
+
+      When a user renames their Gmail address (Google rolled out Gmail rename in
+      March 2026), the email returned by Google changes and your application will
+      silently create a duplicate user record — fragmenting their identity, audit
+      history, and ACLs. The same drift occurs in ~0.04% of normal Sign-in-with-Google
+      logins (Truffle Security, January 2025), independent of the rename feature.
+
+      Fix: use `profile.id` (the OIDC `sub` claim) as the immutable primary key.
+      Treat `profile.emails[0].value` as a mutable contact attribute, not an
+      identifier.
+
+      See: https://github.com/Neelagiri65/authdrift#why-this-matters
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $FN({..., email: $P.emails[0].value, ...})
+          - pattern: |
+              $FN({..., where: {email: $P.emails[0].value}})
+          - pattern: |
+              $FN({..., where: {email: $P.emails[0].value, ...}})
+
+  - id: nextauth-signin-callback-email-as-primary-key
+    message: |
+      This NextAuth `signIn` flow is resolving users by `email`. When a Google user
+      renames their Gmail address (March 2026 rollout), the email returned by the
+      provider changes and a duplicate user record will be created on next sign-in.
+
+      Fix: key the lookup on `account.providerAccountId` (the OIDC `sub` claim) and
+      treat email as a mutable contact attribute.
+
+      See: https://github.com/Neelagiri65/authdrift#why-this-matters
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: |
+              prisma.user.findUnique({where: {email: $U.email}})
+          - pattern: |
+              prisma.user.findFirst({where: {email: $U.email}})
+          - pattern: |
+              db.user.findUnique({where: {email: $U.email}})
+
+  - id: python-google-oauth-userinfo-email-as-primary-key
+    message: |
+      This handler queries a user by the `email` field returned from Google's OAuth
+      userinfo response. When the user renames their Gmail address (March 2026
+      rollout), the email field changes and a duplicate account will be created.
+
+      Fix: store and look up by `userinfo['sub']` (the immutable subject ID).
+      Treat email as a mutable contact attribute.
+
+      See: https://github.com/Neelagiri65/authdrift#why-this-matters
+    severity: WARNING
+    languages:
+      - python
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $MODEL.objects.get(email=$USERINFO['email'])
+          - pattern: |
+              $MODEL.objects.filter(email=$USERINFO['email']).first()
+          - pattern: |
+              $MODEL.query.filter_by(email=$USERINFO['email']).first()
