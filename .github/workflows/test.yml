@@ -1,0 +1,40 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install semgrep
+        run: pip install semgrep
+
+      - name: Scan vulnerable fixtures (must find exactly 3 issues)
+        run: |
+          set +e
+          semgrep scan --config src/authdrift/rules/ tests/fixtures/ --error --json > /tmp/results.json 2>&1
+          EXIT=$?
+          set -e
+          if [ "$EXIT" -ne 1 ]; then
+            echo "Expected exit 1 (findings), got $EXIT"
+            exit 1
+          fi
+          COUNT=$(python3 -c "import json; print(len(json.load(open('/tmp/results.json')).get('results',[])))")
+          if [ "$COUNT" -ne 3 ]; then
+            echo "Expected 3 findings, got $COUNT"
+            exit 1
+          fi
+          echo "OK: 3 findings detected"
+
+      - name: Scan safe fixture (must be clean)
+        run: semgrep scan --config src/authdrift/rules/ tests/fixtures/passport-safe.js --error
