@@ -68,13 +68,16 @@ The scan exits `1` on findings, failing the CI check.
 
 Atlassian's own KB confirms that SCIM email changes create duplicate Atlassian Cloud accounts. Google's developer documentation acknowledges that revoke + reauth produces duplicate accounts. The cascade is documented; the fix is not deployed.
 
-`authdrift` flags the exact code patterns that produce phantom users after a rename event. Three rules, narrowly scoped, designed to slot into CI alongside `semgrep`, `trufflehog`, and `gitleaks` without producing noise.
+`authdrift` flags the exact code patterns that produce phantom users after a rename event. Six rules across six ecosystems, narrowly scoped, designed to slot into CI alongside `semgrep`, `trufflehog`, and `gitleaks` without producing noise.
 
 ## What it catches today
 
 - **Passport.js** handlers using `profile.emails[0].value` as a user lookup key (`passport-google-oauth20`, `passport-google-oauth2`)
 - **NextAuth** `signIn` callbacks resolving users by `user.email` against Prisma
 - **Python** (Django / SQLAlchemy) handlers querying by `userinfo['email']` from Google's userinfo response
+- **authlib** (Flask/Django) handlers using `userinfo['email']` or `userinfo.get('email')` as a lookup key
+- **Firebase Auth** code using `getUserByEmail()` instead of `getUser()` with uid
+- **Lucia v3** auth flows resolving users by email instead of provider subject ID
 
 ## What it deliberately does NOT do
 
@@ -104,7 +107,7 @@ This keeps the finding suppressed for that line while continuing to scan the res
 
 ## Roadmap
 
-- More OAuth library coverage (lucia-auth, authlib, omniauth, Clerk, Supabase Auth, Firebase Auth)
+- More OAuth library coverage (omniauth, Clerk, Supabase Auth)
 - A `--fix` mode that suggests the `sub`-keyed equivalent
 - A hosted scan for organisations that can't run a CLI
 

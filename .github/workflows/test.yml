@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  rules:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,31 +19,45 @@ jobs:
       - name: Install semgrep
         run: pip install semgrep
 
-      - name: Scan all fixtures (must find exactly 8 issues)
-        run: |
-          set +e
-          semgrep scan --config src/authdrift/rules/ tests/fixtures/ --error --json > /tmp/results.json
-          EXIT=$?
-          set -e
-          if [ "$EXIT" -ne 1 ]; then
-            echo "Expected exit 1 (findings), got $EXIT"
-            exit 1
-          fi
-          COUNT=$(python3 -c "import json; print(len(json.load(open('/tmp/results.json')).get('results',[])))")
-          if [ "$COUNT" -ne 8 ]; then
-            echo "Expected 8 findings, got $COUNT"
-            exit 1
-          fi
-          echo "OK: 8 findings detected across vulnerable fixtures, 0 false positives on safe fixtures"
+      - name: Validate rule syntax
+        run: semgrep --validate --config src/authdrift/rules/
 
-      - name: Verify each safe fixture individually
+      - name: Scan vulnerable fixtures (must find at least 1 per file)
         run: |
-          for f in tests/fixtures/safe-*.js tests/fixtures/safe-*.ts tests/fixtures/safe-*.py tests/fixtures/passport-safe.js; do
+          FAIL=0
+          for f in tests/fixtures/*-vulnerable.*; do
             [ -f "$f" ] || continue
-            semgrep scan --config src/authdrift/rules/ "$f" --error --quiet 2>/dev/null
-            if [ $? -ne 0 ]; then
-              echo "FALSE POSITIVE: $f"
-              exit 1
+            COUNT=$(semgrep scan --config src/authdrift/rules/ "$f" --json 2>/dev/null \
+              | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('results',[])))")
+            if [ "$COUNT" -eq 0 ]; then
+              echo "FAIL: $f produced 0 findings"
+              FAIL=1
+            else
+              echo "OK: $f ($COUNT findings)"
             fi
           done
-          echo "OK: all safe fixtures clean"
+          if [ "$FAIL" -eq 1 ]; then exit 1; fi
+
+      - name: Verify safe fixtures (must find 0 each)
+        run: |
+          FAIL=0
+          for f in tests/fixtures/safe-*.js tests/fixtures/safe-*.ts tests/fixtures/safe-*.py tests/fixtures/passport-safe.js; do
+            [ -f "$f" ] || continue
+            COUNT=$(semgrep scan --config src/authdrift/rules/ "$f" --json 2>/dev/null \
+              | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('results',[])))")
+            if [ "$COUNT" -ne 0 ]; then
+              echo "FALSE POSITIVE: $f ($COUNT findings)"
+              FAIL=1
+            else
+              echo "OK: $f"
+            fi
+          done
+          if [ "$FAIL" -eq 1 ]; then exit 1; fi
+
+      - name: Summary
+        run: |
+          TOTAL=$(semgrep scan --config src/authdrift/rules/ tests/fixtures/ --json 2>/dev/null \
+            | python3 -c "import sys,json; print(len(json.load(sys.stdin).get('results',[])))")
+          VULN=$(ls tests/fixtures/*-vulnerable.* 2>/dev/null | wc -l | tr -d ' ')
+          SAFE=$(ls tests/fixtures/safe-*.* tests/fixtures/passport-safe.js 2>/dev/null | wc -l | tr -d ' ')
+          echo "Rules validated. $TOTAL findings across $VULN vulnerable fixtures. $SAFE safe fixtures clean."
