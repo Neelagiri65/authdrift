@@ -1,0 +1,69 @@
+rules:
+  - id: authlib-google-oauth-email-as-primary-key
+    message: |
+      This authlib OAuth handler is using `userinfo['email']` as a user lookup key.
+
+      When a user renames their Gmail address (Google rolled out Gmail rename in
+      March 2026), the email returned by Google changes and your application will
+      silently create a duplicate user record. The same drift occurs in ~0.04% of
+      normal Sign-in-with-Google logins (Truffle Security, January 2025).
+
+      Fix: use `userinfo['sub']` (the OIDC subject claim) as the immutable primary
+      key. Treat `userinfo['email']` as a mutable contact attribute, not an
+      identifier.
+
+      See: https://github.com/Neelagiri65/authdrift#why-this-matters
+    severity: WARNING
+    languages:
+      - python
+    patterns:
+      - pattern-either:
+          - pattern: $MODEL.objects.get(email=$UI['email'])
+          - pattern: $MODEL.objects.filter(email=$UI['email'])
+          - pattern: $MODEL.objects.get(email=$UI.get('email'))
+          - pattern: $MODEL.query.filter_by(email=$UI['email'])
+          - pattern: db.session.query($MODEL).filter_by(email=$UI['email'])
+
+  - id: firebase-auth-getUserByEmail
+    message: |
+      This code uses `getUserByEmail()` to resolve a Firebase Auth user.
+
+      When a user renames their Gmail address (Google rolled out Gmail rename in
+      March 2026), the email returned by the identity provider changes and your
+      application will create a duplicate user record on next sign-in.
+
+      Fix: use `getUserByUid()` or key on `user.uid` (the immutable Firebase
+      subject ID). Treat email as a mutable contact attribute.
+
+      See: https://github.com/Neelagiri65/authdrift#why-this-matters
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: admin.auth().getUserByEmail($EMAIL)
+          - pattern: getAuth().getUserByEmail($EMAIL)
+          - pattern: $AUTH.getUserByEmail($EMAIL)
+
+  - id: lucia-auth-email-as-primary-key
+    message: |
+      This Lucia auth flow is resolving users by email instead of the provider's
+      immutable subject ID.
+
+      When a user renames their Gmail address (Google rolled out Gmail rename in
+      March 2026), the email returned by the provider changes and a duplicate user
+      record will be created on next sign-in.
+
+      Fix: key the lookup on the provider's `providerUserId` (OIDC `sub` claim)
+      and treat email as a mutable contact attribute.
+
+      See: https://github.com/Neelagiri65/authdrift#why-this-matters
+    severity: WARNING
+    languages:
+      - javascript
+      - typescript
+    patterns:
+      - pattern-either:
+          - pattern: db.table("user").where("email", "=", $EMAIL)
+          - pattern: db.getUserByEmail($EMAIL)
