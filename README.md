@@ -2,6 +2,10 @@
 
 > Find OAuth handlers that will break when users rename their Gmail.
 
+[**Site & rule catalogue → authdrift.nativerse-ventures.com**](https://authdrift.nativerse-ventures.com) · [PyPI](https://pypi.org/project/authdrift/) · MIT licensed
+
+**Coverage today:** 6 rules across 6 ecosystems · 24 test fixtures (11 vulnerable + 11 safe + 2 edge) · 0 false positives on the safe matrix.
+
 On 31 March 2026, Google began letting users rename their primary Gmail address. Every OAuth integration that uses email as the user lookup key will silently create a duplicate account when a user renames. Most do.
 
 `authdrift` is a static analysis tool that scans your codebase for the exact patterns that explode on a Gmail rename — and on the ~0.04% baseline `sub`-claim drift Truffle Security documented in January 2025.
